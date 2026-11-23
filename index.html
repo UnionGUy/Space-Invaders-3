@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SPACE INVADERS (1978 Arcade Edition)</title>
+<style>
+  * { box-sizing: border-box; user-select: none; }
+  body {
+    background: #050505;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden;
+  }
+  .cabinet {
+    position: relative;
+    padding: 16px;
+    background: #141414;
+    border: 4px solid #2a2a2a;
+    border-radius: 12px;
+    box-shadow: 0 0 40px rgba(0, 255, 100, 0.15), inset 0 0 20px #000;
+  }
+  .screen-wrap {
+    position: relative;
+    width: 672px;
+    height: 768px;
+    background: #000;
+    overflow: hidden;
+    border: 3px solid #111;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+  .scanlines {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      rgba(18, 16, 16, 0) 50%, 
+      rgba(0, 0, 0, 0.35) 50%
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+  }
+  .controls {
+    margin-top: 10px;
+    color: #888;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="cabinet">
+  <div class="screen-wrap">
+    <canvas id="game" width="224" height="256"></canvas>
+    <div class="scanlines"></div>
+  </div>
+</div>
+<div class="controls">ARROWS / A-D: MOVE &nbsp;|&nbsp; SPACE: FIRE &nbsp;|&nbsp; P: PAUSE &nbsp;|&nbsp; R: RESTART</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 224;
+const H = 256;
+
+// 1. RETRO WEB AUDIO SYNTHESIZER
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playTone(freq, endFreq, duration, type = 'square', vol = 0.08) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  if (endFreq !== freq) {
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, endFreq), audioCtx.currentTime + duration);
+  }
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+const marchNotes = [55, 49, 43.65, 41.20];
+let marchIndex = 0;
+function playMarch() {
+  playTone(marchNotes[marchIndex], marchNotes[marchIndex] * 0.95, 0.09, 'sawtooth', 0.11);
+  marchIndex = (marchIndex + 1) % 4;
+}
+
+function playShoot() { playTone(980, 180, 0.14, 'square', 0.07); }
+function playInvaderDie() { playTone(420, 90, 0.12, 'sawtooth', 0.09); }
+function playPlayerDie() { playTone(160, 28, 0.65, 'sawtooth', 0.15); }
+function playUfoBeep() { playTone(520, 640, 0.08, 'triangle', 0.05); }
+
+// 2. AUTHENTIC BITMAP SPRITES
+const SPRITES = {
+  squid: [
+    [
+      "00011000",
+      "00111100",
+      "01111110",
+      "11011011",
+      "11111111",
+      "00100100",
+      "01011010",
+      "10100101"
+    ],
+    [
+      "00011000",
+      "00111100",
+      "01111110",
+      "11011011",
+      "11111111",
+      "01011010",
+      "10000001",
+      "01000010"
+    ]
+  ],
+  crab: [
+    [
+      "00100000100",
+      "00010001000",
+      "00111111100",
+      "01101110110",
+      "11111111111",
+      "10111111101",
+      "10100000101",
+      "00011011000"
+    ],
+    [
+      "00100000100",
+      "10010001001",
+      "10111111101",
+      "11101110111",
+      "11111111111",
+      "01111111110",
+      "00100000100",
+      "01000000010"
+    ]
+  ],
+  octopus: [
+    [
+      "000011110000",
+      "011111111110",
+      "111111111111",
+      "111001100111",
+      "111111111111",
+      "000110011000",
+      "001101101100",
+      "110000000011"
+    ],
+    [
+      "000011110000",
+      "011111111110",
+      "111111111111",
+      "111001100111",
+      "111111111111",
+      "001110011100",
+      "011001100110",
+      "001100001100"
+    ]
+  ],
+  player: [
+    "0000001000000",
+    "0000011100000",
+    "0000011100000",
+    "0111111111110",
+    "1111111111111",
+    "1111111111111",
+    "1111111111111",
+    "1111111111111"
+  ],
+  ufo: [
+    "0000011111100000",
+    "0001111111111000",
+    "0011111111111100",
+    "0110110110110110",
+    "1111111111111111",
+    "0011100110011100",
+    "0001000000001000"
+  ],
+  explosion: [
+    "0100100010010",
+    "0010010100100",
+    "0001000001000",
+    "1100000000011",
+    "0001000001000",
+    "0010010100100",
+    "0100100010010"
+  ],
+  bunker: [
+    "0000111111111111110000",
+    "0001111111111111111000",
+    "0011111111111111111100",
+    "0111111111111111111110",
+    "1111111111111111111111",
+    "1111111111111111111111",
+    "1111111111111111111111",
+    "1111111111111111111111",
+    "1111111111111111111111",
+    "1111111111111111111111",
+    "1111111111111111111111",
+    "1111111111111111111111",
+    "1111111000000001111111",
+    "1111110000000000111111",
+    "1111100000000000011111",
+    "1111100000000000011111"
+  ]
+};
+
+function drawBitmap(bitmap, x, y, color) {
+  ctx.fillStyle = color;
+  const rx = Math.round(x);
+  const ry = Math.round(y);
+  for (let r = 0; r < bitmap.length; r++) {
+    const row = bitmap[r];
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] === '1') ctx.fillRect(rx + c, ry + r, 1, 1);
+    }
+  }
+}
+
+function getZoneColor(y) {
+  if (y < 48) return '#ff2a2a';
+  if (y >= 184) return '#33ff33';
+  return '#ffffff';
+}
+  // 3. GAME STATE & ENTITIES
+let score = 0;
+let hiScore = Number(localStorage.getItem('si_hiscore') || 0);
+let lives = 3;
+let wave = 1;
+let state = 'START';
+let stateTimer = 0;
+let paused = false;
+
+const player = { x: 105, y: 216, w: 13, h: 8, speed: 1.5 };
+let playerBullet = null;
+let enemyBullets = [];
+let invaders = [];
+let bunkers = [];
+let explosions = [];
+let ufo = null;
+let ufoTimer = 600;
+let ufoPopup = null;
+
+let swarmDir = 1;
+let swarmFrame = 0;
+let stepTimer = 0;
+let stepInterval = 48;
+
+const keys = {};
+document.addEventListener('keydown', e => {
+  initAudio();
+  keys[e.code] = true;
+  if (e.code === 'KeyP' && state === 'PLAYING') paused = !paused;
+  if (e.code === 'KeyR') fullReset();
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (state === 'START' || state === 'GAMEOVER') fullReset();
+    else if (state === 'PLAYING' && !paused) firePlayerBullet();
+  }
+});
+document.addEventListener('keyup', e => keys[e.code] = false);
+canvas.addEventListener('click', () => {
+  initAudio();
+  if (state === 'START' || state === 'GAMEOVER') fullReset();
+});
+
+function createBunkers() {
+  bunkers = [];
+  const startX =;
+  startX.forEach(bx => {
+    const grid = SPRITES.bunker.map(row => row.split('').map(Number));
+    bunkers.push({ x: bx, y: 192, grid });
+  });
+}
+
+function spawnWave() {
+  invaders = [];
+  const rows = [
+    { type: 'squid', pts: 30, w: 8 },
+    { type: 'crab', pts: 20, w: 11 },
+    { type: 'crab', pts: 20, w: 11 },
+    { type: 'octopus', pts: 10, w: 12 },
+    { type: 'octopus', pts: 10, w: 12 }
+  ];
+  const startY = Math.min(56 + (wave - 1) * 8, 96);
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 11; c++) {
+      const info = rows[r];
+      const offsetX = Math.floor((12 - info.w) / 2);
+      invaders.push({
+        x: 24 + c * 16 + offsetX,
+        y: startY + r * 16,
+        w: info.w,
+        h: 8,
+        type: info.type,
+        pts: info.pts,
+        alive: true
+      });
+    }
+  }
+  swarmDir = 1;
+  swarmFrame = 0;
+  marchIndex = 0;
+  playerBullet = null;
+  enemyBullets = [];
+  ufo = null;
+  ufoTimer = 500;
+}
+
+function fullReset() {
+  score = 0;
+  lives = 3;
+  wave = 1;
+  player.x = 105;
+  createBunkers();
+  spawnWave();
+  state = 'PLAYING';
+}
+
+function firePlayerBullet() {
+  if (!playerBullet) {
+    playerBullet = { x: Math.round(player.x + 6), y: player.y - 4, w: 1, h: 4 };
+    playShoot();
+  }
+}
+
+function addScore(pts) {
+  const prev = score;
+  score += pts;
+  if (prev < 1500 && score >= 1500) {
+    lives++;
+    playTone(660, 880, 0.25, 'square', 0.1);
+  }
+  if (score > hiScore) {
+    hiScore = score;
+    localStorage.setItem('si_hiscore', hiScore);
+  }
+}
+
+// 4. BUNKER PIXEL EROSION
+function damageBunker(bunker, hitX, hitY, radius = 2) {
+  const lx = Math.floor(hitX - bunker.x);
+  const ly = Math.floor(hitY - bunker.y);
+  let hitAny = false;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy <= radius * radius + 1) {
+        const gx = lx + dx;
+        const gy = ly + dy;
+        if (gy >= 0 && gy < bunker.grid.length && gx >= 0 && gx < bunker.grid[0].length) {
+          if (bunker.grid[gy][gx] === 1) {
+            if (Math.abs(dx) + Math.abs(dy) < radius + 1 || Math.random() > 0.35) {
+              bunker.grid[gy][gx] = 0;
+              hitAny = true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return hitAny;
+}
+
+function checkBunkerCollision(x, y, w, h, radius) {
+  for (const b of bunkers) {
+    if (x + w > b.x && x < b.x + 22 && y + h > b.y && y < b.y + 16) {
+      const lx = Math.floor(x - b.x);
+      const ly = Math.floor(y - b.y);
+      for (let py = 0; py < h; py++) {
+        for (let px = 0; px < w; px++) {
+          const gx = lx + px;
+          const gy = ly + py;
+          if (gy >= 0 && gy < 16 && gx >= 0 && gx < 22 && b.grid[gy][gx] === 1) {
+            damageBunker(b, x + px, y + py, radius);
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// 5. MAIN UPDATE LOOP
+function update() {
+  if (paused) return;
+
+  explosions.forEach(e => e.timer--);
+  explosions = explosions.filter(e => e.timer > 0);
+  if (ufoPopup) {
+    ufoPopup.timer--;
+    if (ufoPopup.timer <= 0) ufoPopup = null;
+  }
+
+  if (state === 'DYING') {
+    stateTimer--;
+    if (stateTimer <= 0) {
+      lives--;
+      if (lives <= 0) {
+        state = 'GAMEOVER';
+      } else {
+        player.x = 24;
+        enemyBullets = [];
+        state = 'PLAYING';
+      }
+    }
+    return;
+  }
+
+  if (state === 'WAVE_CLEAR') {
+    stateTimer--;
+    if (stateTimer <= 0) {
+      wave++;
+      spawnWave();
+      state = 'PLAYING';
+    }
+    return;
+  }
+
+  if (state !== 'PLAYING') return;
+
+  if ((keys['ArrowLeft'] || keys['KeyA']) && player.x > 10) player.x -= player.speed;
+  if ((keys['ArrowRight'] || keys['KeyD']) && player.x < W - player.w - 10) player.x += player.speed;
+
+  if (playerBullet) {
+    playerBullet.y -= 4;
+    if (playerBullet.y < 34) {
+      explosions.push({ x: playerBullet.x - 3, y: 32, timer: 8, color: '#ff2a2a', small: true });
+      playerBullet = null;
+    } else if (checkBunkerCollision(playerBullet.x, playerBullet.y, 1, 4, 2)) {
+      playerBullet = null;
+    } else if (ufo && playerBullet.x >= ufo.x && playerBullet.x <= ufo.x + 16 &&
+               playerBullet.y >= ufo.y && playerBullet.y <= ufo.y + 7) {
+      const mysteryScores =;
+      const mysteryPts = mysteryScores[Math.floor(Math.random() * 4)];
+      addScore(mysteryPts);
+      playInvaderDie();
+      ufoPopup = { x: ufo.x, y: ufo.y + 6, text: String(mysteryPts), timer: 45 };
+      explosions.push({ x: ufo.x + 1, y: ufo.y, timer: 16, color: '#ff2a2a' });
+      ufo = null;
+      playerBullet = null;
+    } else {
+      for (const inv of invaders) {
+        if (!inv.alive) continue;
+        if (playerBullet.x >= inv.x && playerBullet.x <= inv.x + inv.w &&
+            playerBullet.y >= inv.y && playerBullet.y <= inv.y + inv.h) {
+          inv.alive = false;
+          addScore(inv.pts);
+          playInvaderDie();
+          explosions.push({ x: inv.x - 1, y: inv.y, timer: 12, color: '#ffffff' });
+          playerBullet = null;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!ufo) {
+    ufoTimer--;
+    if (ufoTimer <= 0 && invaders.filter(i => i.alive).length >= 8) {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      ufo = { x: dir === 1 ? -16 : W, y: 38, dir, speed: 0.75, soundTick: 0 };
+      ufoTimer = 850 + Math.floor(Math.random() * 400);
+    }
+  } else {
+    ufo.x += ufo.dir * ufo.speed;
+    ufo.soundTick++;
+    if (ufo.soundTick % 12 === 0) playUfoBeep();
+    if (ufo.x < -20 || ufo.x > W + 20) ufo = null;
+  }
+
+  const aliveInvaders = invaders.filter(i => i.alive);
+  if (aliveInvaders.length === 0) {
+    state = 'WAVE_CLEAR';
+    stateTimer = 60;
+    return;
+  }
+
+  stepInterval = Math.max(2, Math.ceil((aliveInvaders.length / 55) * 44));
+  stepTimer++;
+  if (stepTimer >= stepInterval) {
+    stepTimer = 0;
+    swarmFrame = 1 - swarmFrame;
+    playMarch();
+
+    let hitEdge = false;
+    const stepX = aliveInvaders.length === 1 ? 3 * swarmDir : 2 * swarmDir;
+    for (const inv of aliveInvaders) {
+      if ((swarmDir === 1 && inv.x + inv.w + stepX >= W - 8) ||
+          (swarmDir === -1 && inv.x + stepX <= 8)) {
+        hitEdge = true;
+        break;
+      }
+    }
+
+    if (hitEdge) {
+      swarmDir *= -1;
+      for (const inv of aliveInvaders) {
+        inv.y += 8;
+        checkBunkerCollision(inv.x, inv.y, inv.w, inv.h, 2);
+        if (inv.y + inv.h >= player.y) {
+          lives = 0;
+          state = 'GAMEOVER';
+          playPlayerDie();
+          return;
+        }
+      }
+    } else {
+      for (const inv of aliveInvaders) {
+        inv.x += stepX;
+      }
+    }
+  }
+
+  const fireChance = 0.018 + (wave * 0.004);
+  if (enemyBullets.length < 3 && Math.random() < fireChance) {
+    const columns = {};
+    aliveInvaders.forEach(inv => {
+      const colKey = Math.round(inv.x / 16);
+      if (!columns[colKey] || inv.y > columns[colKey].y) columns[colKey] = inv;
+    });
+    const shooters = Object.values(columns);
+    const chosen = shooters[Math.floor(Math.random() * shooters.length)];
+    enemyBullets.push({
+      x: Math.round(chosen.x + chosen.w / 2),
+      y: chosen.y + chosen.h,
+      type: Math.random() < 0.5 ? 'zigzag' : 'plunger',
+      tick: 0
+    });
+  }
+
+  for (let i = enemyBullets.length - 1; i >= 0; i--) {
+    const b = enemyBullets[i];
+    b.y += 1.65;
+    b.tick++;
+
+    if (playerBullet && Math.abs(b.x - playerBullet.x) <= 2 && Math.abs(b.y - playerBullet.y) <= 4) {
+      explosions.push({ x: b.x - 2, y: b.y - 2, timer: 8, color: '#fff', small: true });
+      enemyBullets.splice(i, 1);
+      playerBullet = null;
+      continue;
+    }
+
+    if (checkBunkerCollision(b.x - 1, b.y, 3, 5, 2)) {
+      enemyBullets.splice(i, 1);
+      continue;
+    }
+
+    if (b.x >= player.x && b.x <= player.x + player.w &&
+        b.y + 4 >= player.y && b.y <= player.y + player.h) {
+      enemyBullets.splice(i, 1);
+      state = 'DYING';
+      stateTimer = 75;
+      playPlayerDie();
+      break;
+    }
+
+    if (b.y >= 238) {
+      explosions.push({ x: b.x - 2, y: 234, timer: 6, color: '#33ff33', small: true });
+      enemyBullets.splice(i, 1);
+    }
+  }
+}
+
+// 6. ARCADE RENDERER
+function drawText(text, x, y, color = '#ffffff', align = 'left') {
+  ctx.fillStyle = color;
+  ctx.font = 'bold 8px "Courier New", monospace';
+  ctx.textAlign = align;
+  ctx.fillText(text, x, y);
+  ctx.textAlign = 'left';
+}
+
+function padScore(num) {
+  return String(num).padStart(4, '0');
+}
+
+function draw() {
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, W, H);
+
+  drawText('SCORE<1>', 12, 12);
+  drawText('HI-SCORE', 84, 12);
+  drawText('SCORE<2>', 164, 12);
+
+  drawText(padScore(score), 20, 23);
+  drawText(padScore(hiScore), 92, 23);
+  drawText('0000', 172, 23);
+
+  ctx.fillStyle = '#33ff33';
+  ctx.fillRect(8, 239, W - 16, 1);
+drawText(String(lives), 14, 250);
+for (let i = 0; i < Math.max(0, lives - 1); i++) {
+drawBitmap(SPRITES.player, 28 + i * 16, 243, '#33ff33');
+}
+drawText('CREDIT 01', 152, 250);
+if (state === 'START') {
+drawText('PLAY', 112, 68, '#fff', 'center');
+drawText('SPACE  INVADERS', 112, 86, '#fff', 'center');
+drawText('SCORE ADVANCE TABLE', 112, 118, '#fff', 'center');
+drawBitmap(SPRITES.ufo, 68, 130, '#ff2a2a');
+drawText('=? MYSTERY', 90, 136, '#ff2a2a');
+drawBitmap(SPRITES.squid, 72, 146, '#fff');
+drawText('=30 POINTS', 90, 153, '#fff');
+drawBitmap(SPRITES.crab, 71, 162, '#fff');
+drawText('=20 POINTS', 90, 169, '#fff');
+drawBitmap(SPRITES.octopus, 70, 178, '#33ff33');
+drawText('=10 POINTS', 90, 185, '#33ff33');
+if (Math.floor(Date.now() / 500) % 2 === 0) {
+drawText('PRESS SPACE TO START', 112, 218, '#33ff33', 'center');
+}
+return;
+}
+ctx.fillStyle = '#33ff33';
+bunkers.forEach(b => {
+for (let r = 0; r < 16; r++) {
+for (let c = 0; c < 22; c++) {
+if (b.grid[r][c] === 1) ctx.fillRect(b.x + c, b.y + r, 1, 1);
+}
+}
+});
+if (ufo) drawBitmap(SPRITES.ufo, ufo.x, ufo.y, '#ff2a2a');
+if (ufoPopup) drawText(ufoPopup.text, ufoPopup.x, ufoPopup.y, '#ff2a2a');
+invaders.forEach(inv => {
+if (!inv.alive) return;
+const sprite = SPRITES[inv.type][swarmFrame];
+drawBitmap(sprite, inv.x, inv.y, getZoneColor(inv.y));
+});
+if (state === 'DYING') {
+const flicker = Math.floor(stateTimer / 5) % 2 === 0;
+drawBitmap(SPRITES.explosion, player.x, player.y, flicker ? '#33ff33' : '#ff2a2a');
+} else if (state !== 'GAMEOVER') {
+drawBitmap(SPRITES.player, player.x, player.y, '#33ff33');
+}
+if (playerBullet) {
+ctx.fillStyle = getZoneColor(playerBullet.y);
+ctx.fillRect(playerBullet.x, playerBullet.y, playerBullet.w, playerBullet.h);
+}
+enemyBullets.forEach(b => {
+ctx.fillStyle = getZoneColor(b.y);
+const phase = Math.floor(b.tick / 4) % 2;
+if (b.type === 'zigzag') {
+ctx.fillRect(b.x + (phase ? -1 : 0), b.y, 1, 2);
+ctx.fillRect(b.x + (phase ? 0 : -1), b.y + 2, 1, 2);
+} else {
+ctx.fillRect(b.x, b.y, 1, 5);
+ctx.fillRect(b.x - 1, b.y + (phase ? 1 : 3), 3, 1);
+}
+});
+explosions.forEach(e => {
+if (e.small) {
+ctx.fillStyle = e.color;
+ctx.fillRect(e.x, e.y, 3, 3);
+} else {
+drawBitmap(SPRITES.explosion, e.x, e.y, e.color);
+}
+});
+if (paused) {
+drawText('PAUSED', 112, 130, '#33ff33', 'center');
+}
+if (state === 'GAMEOVER') {
+drawText('GAME OVER', 112, 120, '#ff2a2a', 'center');
+drawText('PRESS SPACE TO PLAY AGAIN', 112, 138, '#ffffff', 'center');
+}
+}
+function loop() {
+update();
+draw();
+requestAnimationFrame(loop);
+}
+loop();
