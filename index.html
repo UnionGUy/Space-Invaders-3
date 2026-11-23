@@ -199,7 +199,7 @@ canvas.addEventListener('click', () => {
 
 function createBunkers() {
   bunkers = [];
-  const startX =;
+  const startX = [24, 72, 120, 168];
   startX.forEach(bx => {
     const grid = SPRITES.bunker.map(row => row.split('').map(Number));
     bunkers.push({ x: bx, y: 192, grid });
@@ -361,7 +361,7 @@ function checkBunkerCollision(x, y, w, h, radius) {
       playerBullet = null;
     } else if (ufo && playerBullet.x >= ufo.x && playerBullet.x <= ufo.x + 16 &&
                playerBullet.y >= ufo.y && playerBullet.y <= ufo.y + 7) {
-      const mysteryScores =;
+      const mysteryScores = [50, 100, 150, 300];
       const mysteryPts = mysteryScores[Math.floor(Math.random() * 4)];
       addScore(mysteryPts);
       playInvaderDie();
