@@ -19,7 +19,7 @@
   }
   .cabinet {
     position: relative;
-    padding: 16px;
+    padding: 12px;
     background: #141414;
     border: 4px solid #2a2a2a;
     border-radius: 12px;
@@ -27,8 +27,8 @@
   }
   .screen-wrap {
     position: relative;
-    width: 672px;
-    height: 768px;
+    width: 448px;
+    height: 512px;
     background: #000;
     overflow: hidden;
     border: 3px solid #111;
@@ -42,10 +42,7 @@
   .scanlines {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      rgba(18, 16, 16, 0) 50%, 
-      rgba(0, 0, 0, 0.35) 50%
-    );
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%);
     background-size: 100% 4px;
     pointer-events: none;
   }
@@ -74,7 +71,6 @@ const ctx = canvas.getContext('2d');
 const W = 224;
 const H = 256;
 
-// 1. RETRO WEB AUDIO SYNTHESIZER
 let audioCtx = null;
 function initAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -110,119 +106,36 @@ function playInvaderDie() { playTone(420, 90, 0.12, 'sawtooth', 0.09); }
 function playPlayerDie() { playTone(160, 28, 0.65, 'sawtooth', 0.15); }
 function playUfoBeep() { playTone(520, 640, 0.08, 'triangle', 0.05); }
 
-// 2. AUTHENTIC BITMAP SPRITES
 const SPRITES = {
   squid: [
-    [
-      "00011000",
-      "00111100",
-      "01111110",
-      "11011011",
-      "11111111",
-      "00100100",
-      "01011010",
-      "10100101"
-    ],
-    [
-      "00011000",
-      "00111100",
-      "01111110",
-      "11011011",
-      "11111111",
-      "01011010",
-      "10000001",
-      "01000010"
-    ]
+    ["00011000","00111100","01111110","11011011","11111111","00100100","01011010","10100101"],
+    ["00011000","00111100","01111110","11011011","11111111","01011010","10000001","01000010"]
   ],
   crab: [
-    [
-      "00100000100",
-      "00010001000",
-      "00111111100",
-      "01101110110",
-      "11111111111",
-      "10111111101",
-      "10100000101",
-      "00011011000"
-    ],
-    [
-      "00100000100",
-      "10010001001",
-      "10111111101",
-      "11101110111",
-      "11111111111",
-      "01111111110",
-      "00100000100",
-      "01000000010"
-    ]
+    ["00100000100","00010001000","00111111100","01101110110","11111111111","10111111101","10100000101","00011011000"],
+    ["00100000100","10010001001","10111111101","11101110111","11111111111","01111111110","00100000100","01000000010"]
   ],
   octopus: [
-    [
-      "000011110000",
-      "011111111110",
-      "111111111111",
-      "111001100111",
-      "111111111111",
-      "000110011000",
-      "001101101100",
-      "110000000011"
-    ],
-    [
-      "000011110000",
-      "011111111110",
-      "111111111111",
-      "111001100111",
-      "111111111111",
-      "001110011100",
-      "011001100110",
-      "001100001100"
-    ]
+    ["000011110000","011111111110","111111111111","111001100111","111111111111","000110011000","001101101100","110000000011"],
+    ["000011110000","011111111110","111111111111","111001100111","111111111111","001110011100","011001100110","001100001100"]
   ],
   player: [
-    "0000001000000",
-    "0000011100000",
-    "0000011100000",
-    "0111111111110",
-    "1111111111111",
-    "1111111111111",
-    "1111111111111",
-    "1111111111111"
+    "0000001000000","0000011100000","0000011100000","0111111111110",
+    "1111111111111","1111111111111","1111111111111","1111111111111"
   ],
   ufo: [
-    "0000011111100000",
-    "0001111111111000",
-    "0011111111111100",
-    "0110110110110110",
-    "1111111111111111",
-    "0011100110011100",
-    "0001000000001000"
+    "0000011111100000","0001111111111000","0011111111111100","0110110110110110",
+    "1111111111111111","0011100110011100","0001000000001000"
   ],
   explosion: [
-    "0100100010010",
-    "0010010100100",
-    "0001000001000",
-    "1100000000011",
-    "0001000001000",
-    "0010010100100",
-    "0100100010010"
+    "0100100010010","0010010100100","0001000001000","1100000000011",
+    "0001000001000","0010010100100","0100100010010"
   ],
   bunker: [
-    "0000111111111111110000",
-    "0001111111111111111000",
-    "0011111111111111111100",
-    "0111111111111111111110",
-    "1111111111111111111111",
-    "1111111111111111111111",
-    "1111111111111111111111",
-    "1111111111111111111111",
-    "1111111111111111111111",
-    "1111111111111111111111",
-    "1111111111111111111111",
-    "1111111111111111111111",
-    "1111111000000001111111",
-    "1111110000000000111111",
-    "1111100000000000011111",
-    "1111100000000000011111"
+    "0000111111111111110000","0001111111111111111000","0011111111111111111100","0111111111111111111110",
+    "1111111111111111111111","1111111111111111111111","1111111111111111111111","1111111111111111111111",
+    "1111111111111111111111","1111111111111111111111","1111111111111111111111","1111111111111111111111",
+    "1111111000000001111111","1111110000000000111111","1111100000000000011111","1111100000000000011111"
   ]
 };
 
@@ -243,8 +156,7 @@ function getZoneColor(y) {
   if (y >= 184) return '#33ff33';
   return '#ffffff';
 }
-  // 3. GAME STATE & ENTITIES
-let score = 0;
+ let score = 0;
 let hiScore = Number(localStorage.getItem('si_hiscore') || 0);
 let lives = 3;
 let wave = 1;
@@ -358,7 +270,6 @@ function addScore(pts) {
   }
 }
 
-// 4. BUNKER PIXEL EROSION
 function damageBunker(bunker, hitX, hitY, radius = 2) {
   const lx = Math.floor(hitX - bunker.x);
   const ly = Math.floor(hitY - bunker.y);
@@ -368,7 +279,7 @@ function damageBunker(bunker, hitX, hitY, radius = 2) {
       if (dx * dx + dy * dy <= radius * radius + 1) {
         const gx = lx + dx;
         const gy = ly + dy;
-        if (gy >= 0 && gy < bunker.grid.length && gx >= 0 && gx < bunker.grid[0].length) {
+        if (gy >= 0 && gy < bunker.grid.length && gx >= 0 && gx < bunker.grid.length) {
           if (bunker.grid[gy][gx] === 1) {
             if (Math.abs(dx) + Math.abs(dy) < radius + 1 || Math.random() > 0.35) {
               bunker.grid[gy][gx] = 0;
@@ -401,9 +312,7 @@ function checkBunkerCollision(x, y, w, h, radius) {
   }
   return false;
 }
-
-// 5. MAIN UPDATE LOOP
-function update() {
+ function update() {
   if (paused) return;
 
   explosions.forEach(e => e.timer--);
@@ -583,7 +492,6 @@ function update() {
   }
 }
 
-// 6. ARCADE RENDERER
 function drawText(text, x, y, color = '#ffffff', align = 'left') {
   ctx.fillStyle = color;
   ctx.font = 'bold 8px "Courier New", monospace';
@@ -603,90 +511,101 @@ function draw() {
   drawText('SCORE<1>', 12, 12);
   drawText('HI-SCORE', 84, 12);
   drawText('SCORE<2>', 164, 12);
-
   drawText(padScore(score), 20, 23);
   drawText(padScore(hiScore), 92, 23);
   drawText('0000', 172, 23);
 
   ctx.fillStyle = '#33ff33';
   ctx.fillRect(8, 239, W - 16, 1);
-drawText(String(lives), 14, 250);
-for (let i = 0; i < Math.max(0, lives - 1); i++) {
-drawBitmap(SPRITES.player, 28 + i * 16, 243, '#33ff33');
+  drawText(String(lives), 14, 250);
+  for (let i = 0; i < Math.max(0, lives - 1); i++) {
+    drawBitmap(SPRITES.player, 28 + i * 16, 243, '#33ff33');
+  }
+  drawText('CREDIT 01', 152, 250);
+
+  if (state === 'START') {
+    drawText('PLAY', 112, 68, '#fff', 'center');
+    drawText('SPACE  INVADERS', 112, 86, '#fff', 'center');
+    drawText('*SCORE ADVANCE TABLE*', 112, 118, '#fff', 'center');
+    drawBitmap(SPRITES.ufo, 68, 130, '#ff2a2a');
+    drawText('=? MYSTERY', 90, 136, '#ff2a2a');
+    drawBitmap(SPRITES.squid, 72, 146, '#fff');
+    drawText('=30 POINTS', 90, 153, '#fff');
+    drawBitmap(SPRITES.crab, 71, 162, '#fff');
+    drawText('=20 POINTS', 90, 169, '#fff');
+    drawBitmap(SPRITES.octopus, 70, 178, '#33ff33');
+    drawText('=10 POINTS', 90, 185, '#33ff33');
+    if (Math.floor(Date.now() / 500) % 2 === 0) {
+      drawText('PRESS SPACE TO START', 112, 218, '#33ff33', 'center');
+    }
+    return;
+  }
+
+  ctx.fillStyle = '#33ff33';
+  bunkers.forEach(b => {
+    for (let r = 0; r < 16; r++) {
+      for (let c = 0; c < 22; c++) {
+        if (b.grid[r][c] === 1) ctx.fillRect(b.x + c, b.y + r, 1, 1);
+      }
+    }
+  });
+
+  if (ufo) drawBitmap(SPRITES.ufo, ufo.x, ufo.y, '#ff2a2a');
+  if (ufoPopup) drawText(ufoPopup.text, ufoPopup.x, ufoPopup.y, '#ff2a2a');
+
+  invaders.forEach(inv => {
+    if (!inv.alive) return;
+    drawBitmap(SPRITES[inv.type][swarmFrame], inv.x, inv.y, getZoneColor(inv.y));
+  });
+
+  if (state === 'DYING') {
+    const flicker = Math.floor(stateTimer / 5) % 2 === 0;
+    drawBitmap(SPRITES.explosion, player.x, player.y, flicker ? '#33ff33' : '#ff2a2a');
+  } else if (state !== 'GAMEOVER') {
+    drawBitmap(SPRITES.player, player.x, player.y, '#33ff33');
+  }
+
+  if (playerBullet) {
+    ctx.fillStyle = getZoneColor(playerBullet.y);
+    ctx.fillRect(playerBullet.x, playerBullet.y, playerBullet.w, playerBullet.h);
+  }
+
+  enemyBullets.forEach(b => {
+    ctx.fillStyle = getZoneColor(b.y);
+    const phase = Math.floor(b.tick / 4) % 2;
+    if (b.type === 'zigzag') {
+      ctx.fillRect(b.x + (phase ? -1 : 0), b.y, 1, 2);
+      ctx.fillRect(b.x + (phase ? 0 : -1), b.y + 2, 1, 2);
+    } else {
+      ctx.fillRect(b.x, b.y, 1, 5);
+      ctx.fillRect(b.x - 1, b.y + (phase ? 1 : 3), 3, 1);
+    }
+  });
+
+  explosions.forEach(e => {
+    if (e.small) {
+      ctx.fillStyle = e.color;
+      ctx.fillRect(e.x, e.y, 3, 3);
+    } else {
+      drawBitmap(SPRITES.explosion, e.x, e.y, e.color);
+    }
+  });
+
+  if (paused) drawText('PAUSED', 112, 130, '#33ff33', 'center');
+  if (state === 'GAMEOVER') {
+    drawText('GAME OVER', 112, 120, '#ff2a2a', 'center');
+    drawText('PRESS SPACE TO PLAY AGAIN', 112, 138, '#ffffff', 'center');
+  }
 }
-drawText('CREDIT 01', 152, 250);
-if (state === 'START') {
-drawText('PLAY', 112, 68, '#fff', 'center');
-drawText('SPACE  INVADERS', 112, 86, '#fff', 'center');
-drawText('SCORE ADVANCE TABLE', 112, 118, '#fff', 'center');
-drawBitmap(SPRITES.ufo, 68, 130, '#ff2a2a');
-drawText('=? MYSTERY', 90, 136, '#ff2a2a');
-drawBitmap(SPRITES.squid, 72, 146, '#fff');
-drawText('=30 POINTS', 90, 153, '#fff');
-drawBitmap(SPRITES.crab, 71, 162, '#fff');
-drawText('=20 POINTS', 90, 169, '#fff');
-drawBitmap(SPRITES.octopus, 70, 178, '#33ff33');
-drawText('=10 POINTS', 90, 185, '#33ff33');
-if (Math.floor(Date.now() / 500) % 2 === 0) {
-drawText('PRESS SPACE TO START', 112, 218, '#33ff33', 'center');
-}
-return;
-}
-ctx.fillStyle = '#33ff33';
-bunkers.forEach(b => {
-for (let r = 0; r < 16; r++) {
-for (let c = 0; c < 22; c++) {
-if (b.grid[r][c] === 1) ctx.fillRect(b.x + c, b.y + r, 1, 1);
-}
-}
-});
-if (ufo) drawBitmap(SPRITES.ufo, ufo.x, ufo.y, '#ff2a2a');
-if (ufoPopup) drawText(ufoPopup.text, ufoPopup.x, ufoPopup.y, '#ff2a2a');
-invaders.forEach(inv => {
-if (!inv.alive) return;
-const sprite = SPRITES[inv.type][swarmFrame];
-drawBitmap(sprite, inv.x, inv.y, getZoneColor(inv.y));
-});
-if (state === 'DYING') {
-const flicker = Math.floor(stateTimer / 5) % 2 === 0;
-drawBitmap(SPRITES.explosion, player.x, player.y, flicker ? '#33ff33' : '#ff2a2a');
-} else if (state !== 'GAMEOVER') {
-drawBitmap(SPRITES.player, player.x, player.y, '#33ff33');
-}
-if (playerBullet) {
-ctx.fillStyle = getZoneColor(playerBullet.y);
-ctx.fillRect(playerBullet.x, playerBullet.y, playerBullet.w, playerBullet.h);
-}
-enemyBullets.forEach(b => {
-ctx.fillStyle = getZoneColor(b.y);
-const phase = Math.floor(b.tick / 4) % 2;
-if (b.type === 'zigzag') {
-ctx.fillRect(b.x + (phase ? -1 : 0), b.y, 1, 2);
-ctx.fillRect(b.x + (phase ? 0 : -1), b.y + 2, 1, 2);
-} else {
-ctx.fillRect(b.x, b.y, 1, 5);
-ctx.fillRect(b.x - 1, b.y + (phase ? 1 : 3), 3, 1);
-}
-});
-explosions.forEach(e => {
-if (e.small) {
-ctx.fillStyle = e.color;
-ctx.fillRect(e.x, e.y, 3, 3);
-} else {
-drawBitmap(SPRITES.explosion, e.x, e.y, e.color);
-}
-});
-if (paused) {
-drawText('PAUSED', 112, 130, '#33ff33', 'center');
-}
-if (state === 'GAMEOVER') {
-drawText('GAME OVER', 112, 120, '#ff2a2a', 'center');
-drawText('PRESS SPACE TO PLAY AGAIN', 112, 138, '#ffffff', 'center');
-}
-}
+
 function loop() {
-update();
-draw();
-requestAnimationFrame(loop);
+  update();
+  draw();
+  requestAnimationFrame(loop);
 }
+
 loop();
+</script>
+</body>
+</html>
+
